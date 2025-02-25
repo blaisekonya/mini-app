@@ -329,6 +329,17 @@ export function StakeWithPermitForm() {
     };
   }, [walletAddress]);
 
+  // Poll staked balance every 5 seconds
+  useEffect(() => {
+    if (!walletAddress) return;
+    // Initial fetch
+    fetchStakedBalance();
+    const interval = setInterval(() => {
+      fetchStakedBalance();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [walletAddress]);
+
   return (
     <div className="w-full">
       <div className="mb-4 flex gap-1">
@@ -338,7 +349,7 @@ export function StakeWithPermitForm() {
             setSelectedAction("deposit");
             setAmount("");
           }}
-          className={`leading-narrow h-9 items-center rounded-full px-4 font-sans text-sm font-medium tracking-normal text-gray-900 transition-all duration-200 ${
+          className={`h-9 items-center rounded-full px-4 font-sans text-sm font-medium leading-narrow tracking-normal text-gray-900 transition-all duration-200 ${
             selectedAction === "deposit" ? "bg-gray-100" : ""
           }`}
         >
@@ -350,7 +361,7 @@ export function StakeWithPermitForm() {
             setSelectedAction("withdraw");
             setAmount("");
           }}
-          className={`leading-narrow h-9 items-center rounded-full px-4 font-sans text-sm font-medium tracking-normal text-gray-900 transition-all duration-200 ${
+          className={`h-9 items-center rounded-full px-4 font-sans text-sm font-medium leading-narrow tracking-normal text-gray-900 transition-all duration-200 ${
             selectedAction === "withdraw" ? "bg-gray-100" : ""
           }`}
         >
@@ -398,7 +409,7 @@ export function StakeWithPermitForm() {
                     ) || "0"
               )
             }
-            className="leading-narrow h-9 items-center rounded-full bg-gray-100 px-4 font-sans text-sm font-medium tracking-normal text-gray-400"
+            className="h-9 items-center rounded-full bg-gray-100 px-4 font-sans text-sm font-medium leading-narrow tracking-normal text-gray-400"
           >
             Max
           </button>
