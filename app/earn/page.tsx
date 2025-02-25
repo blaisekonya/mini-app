@@ -73,6 +73,12 @@ export default function EarnPage() {
   };
 
   useEffect(() => {
+    if (walletAddress) {
+      fetchBasicIncomeInfo();
+    }
+  }, [walletAddress]);
+
+  useEffect(() => {
     if (transactionId) {
       fetchBalance();
     }
