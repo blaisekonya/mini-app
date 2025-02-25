@@ -19,6 +19,7 @@ import { useWaitForTransactionReceipt } from "@worldcoin/minikit-react";
 import { Button } from "@/components/ui/Button";
 import { ComingSoonDrawer } from "@/components/ComingSoonDrawer";
 import { StakeWithPermitForm } from "@/components/StakeWithPermitForm";
+import Spinner from "@/components/ui/Button/Spinner";
 
 export default function EarnPage() {
   // Global wallet state remains for things like address and token balance
@@ -49,7 +50,10 @@ export default function EarnPage() {
 
   useEffect(() => {
     const updateBasicIncomeInfo = async () => {
-      if (!walletAddress) return;
+      if (!walletAddress) {
+        setBasicIncomeLoading(false);
+        return;
+      }
       console.log(`[BasicIncome] Fetching data for wallet: ${walletAddress}`);
       try {
         const result = await viemClient.readContract({
@@ -103,6 +107,10 @@ export default function EarnPage() {
       fetchBalance();
     }
   }, [transactionId, fetchBalance]);
+
+  useEffect(() => {
+    console.log("Transaction confirming:", isConfirming);
+  }, [isConfirming]);
 
   const sendSetup = async () => {
     if (!MiniKit.isInstalled()) return;
@@ -175,17 +183,15 @@ export default function EarnPage() {
   };
 
   const renderBasicIncomeContent = () => {
-    // 1. Waiting for wallet connection status (still undefined)
-    if (walletAddress === undefined) {
+    if (walletAddress === undefined || basicIncomeLoading) {
       console.log("Wallet connection is loading...");
       return (
-        <div className="flex w-full flex-col items-center py-6">
-          <p>Loading...</p>
+        <div className="flex w-full flex-col items-center">
+          <Spinner />
         </div>
       );
     }
 
-    // 2. Wallet determined but not connected: show sign in UI
     if (walletAddress === null) {
       console.log("No wallet connected. Showing sign in UI.");
       return (
@@ -208,17 +214,6 @@ export default function EarnPage() {
       );
     }
 
-    // 3. Wallet connected but waiting for basic income info from the blockchain:
-    if (basicIncomeLoading) {
-      console.log("Wallet connected, waiting for basic income details...");
-      return (
-        <div className="flex w-full flex-col items-center py-6">
-          <p>Loading...</p>
-        </div>
-      );
-    }
-
-    // 4. Wallet is connected and basic income info is available:
     return (
       <div className="flex w-full flex-col items-center py-6">
         <div className="mb-10 flex h-24 w-24 items-center justify-center rounded-full bg-gray-100">
