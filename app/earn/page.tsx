@@ -21,22 +21,19 @@ import { ComingSoonDrawer } from "@/components/ComingSoonDrawer";
 import { StakeWithPermitForm } from "@/components/StakeWithPermitForm";
 
 export default function EarnPage() {
+  // Global wallet state remains for things like address and token balance
+  const { walletAddress, tokenBalance, fetchBalance } = useWallet();
+
+  // Localize basic income state since these values are only used here
+  const [claimableAmount, setClaimableAmount] = useState<string | null>(null);
+  const [basicIncomeActivated, setBasicIncomeActivated] = useState(false);
+
   const [activeTab, setActiveTab] = useState("Basic income");
-  const {
-    walletAddress,
-    claimableAmount,
-    tokenBalance,
-    fetchBasicIncomeInfo,
-    fetchBalance,
-    basicIncomeActivated,
-    setBasicIncomeActivated,
-  } = useWallet();
   const [transactionId, setTransactionId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasSeenSavings, setHasSeenSavings] = useState(() => {
     return localStorage.getItem("hasSeenSavings") === "true";
   });
-
   const [displayClaimable, setDisplayClaimable] = useState<number>(
     Number(claimableAmount) || 0
   );
@@ -49,12 +46,39 @@ export default function EarnPage() {
     transactionId: transactionId,
   });
 
+  // Helper to convert wei values
+  const fromWei = (value: bigint) => (Number(value) / 1e18).toString();
+
+  // Fetch the on-chain basic income info and update the local state
+  const fetchBasicIncomeInfo = async () => {
+    if (!walletAddress) return;
+    try {
+      const result = await viemClient.readContract({
+        address: "0x02c3B99D986ef1612bAC63d4004fa79714D00012",
+        abi: parseAbi([
+          "function getStakeInfo(address) external view returns (uint256, uint256)",
+        ]),
+        functionName: "getStakeInfo",
+        args: [walletAddress as `0x${string}`],
+      });
+
+      if (Array.isArray(result) && result.length === 2) {
+        const newClaimable = fromWei(result[1]);
+        setClaimableAmount(newClaimable);
+        if (newClaimable !== "0") setBasicIncomeActivated(true);
+      }
+    } catch (error) {
+      console.error("Error fetching basic income info:", error);
+    }
+  };
+
   useEffect(() => {
     if (transactionId) {
       fetchBalance();
     }
   }, [transactionId, fetchBalance]);
 
+  // Local calculation of claimable amount based on a stored baseline and an accumulation rate
   useEffect(() => {
     if (claimableAmount === undefined || claimableAmount === null) return;
 
@@ -71,7 +95,7 @@ export default function EarnPage() {
       baseValue = parseFloat(storedBase);
       startTime = parseInt(storedStartTime, 10);
 
-      // If the on-chain claimable has increased (e.g. due to accumulation)
+      // If the on-chain claimable has increased, update the baseline.
       if (currentClaimable > baseValue) {
         baseValue = currentClaimable;
         startTime = Date.now();
@@ -79,7 +103,7 @@ export default function EarnPage() {
         localStorage.setItem("basicIncomeStartTime", startTime.toString());
       }
 
-      // If the on-chain claimable has decreased (i.e. a claim was made externally)
+      // If the on-chain claimable has decreased, reset the baseline.
       if (currentClaimable < baseValue) {
         baseValue = currentClaimable;
         startTime = Date.now();
