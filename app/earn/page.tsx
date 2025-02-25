@@ -174,79 +174,97 @@ export default function EarnPage() {
     }
   };
 
+  const renderBasicIncomeContent = () => {
+    // 1. Waiting for wallet connection status (still undefined)
+    if (walletAddress === undefined) {
+      console.log("Wallet connection is loading...");
+      return (
+        <div className="flex w-full flex-col items-center py-6">
+          <p>Loading...</p>
+        </div>
+      );
+    }
+
+    // 2. Wallet determined but not connected: show sign in UI
+    if (walletAddress === null) {
+      console.log("No wallet connected. Showing sign in UI.");
+      return (
+        <div className="flex w-full flex-col items-center py-6">
+          <div className="mb-10 flex h-24 w-24 items-center justify-center rounded-full bg-gray-100">
+            <PiHandCoinsFill className="h-10 w-10 text-gray-400" />
+          </div>
+          <Typography as="h2" variant="heading" level={1}>
+            Basic Income
+          </Typography>
+          <Typography
+            variant="subtitle"
+            level={1}
+            className="mx-auto mb-10 mt-4 text-center text-gray-500"
+          >
+            Sign in to claim your basic income
+          </Typography>
+          <WalletAuth onError={(error) => console.error(error)} />
+        </div>
+      );
+    }
+
+    // 3. Wallet connected but waiting for basic income info from the blockchain:
+    if (basicIncomeLoading) {
+      console.log("Wallet connected, waiting for basic income details...");
+      return (
+        <div className="flex w-full flex-col items-center py-6">
+          <p>Loading...</p>
+        </div>
+      );
+    }
+
+    // 4. Wallet is connected and basic income info is available:
+    return (
+      <div className="flex w-full flex-col items-center py-6">
+        <div className="mb-10 flex h-24 w-24 items-center justify-center rounded-full bg-gray-100">
+          <PiHandCoinsFill className="h-10 w-10 text-gray-400" />
+        </div>
+        <Typography as="h2" variant="heading" level={1}>
+          Basic Income
+        </Typography>
+        {!basicIncomeActivated ? (
+          <>
+            <Typography
+              variant="subtitle"
+              level={1}
+              className="mx-auto mb-10 mt-4 text-center text-gray-500"
+            >
+              Set up your basic income
+            </Typography>
+            <Button onClick={sendSetup} isLoading={isSubmitting} fullWidth>
+              Activate basic income
+            </Button>
+          </>
+        ) : (
+          <>
+            <Typography
+              variant="subtitle"
+              level={1}
+              className="mx-auto mb-10 mt-4 text-center text-gray-500"
+            >
+              Claimable tokens
+            </Typography>
+            <p className="mx-auto mb-14 font-sans text-[56px] font-semibold leading-narrow tracking-normal">
+              {claimable.toFixed(5)}
+            </p>
+            <Button onClick={sendClaim} isLoading={isSubmitting} fullWidth>
+              Claim
+            </Button>
+          </>
+        )}
+      </div>
+    );
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case "Basic income":
-        if (basicIncomeLoading) {
-          return (
-            <div className="flex w-full flex-col items-center py-6">
-              <p>Loading your basic income details...</p>
-            </div>
-          );
-        }
-
-        return (
-          <div className="flex w-full flex-col items-center py-6">
-            <div className="mb-10 flex h-24 w-24 items-center justify-center rounded-full bg-gray-100">
-              <PiHandCoinsFill className="h-10 w-10 text-gray-400" />
-            </div>
-            <Typography as="h2" variant="heading" level={1}>
-              Basic Income
-            </Typography>
-
-            {walletAddress === null ? (
-              <>
-                <Typography
-                  variant="subtitle"
-                  level={1}
-                  className="mx-auto mb-10 mt-4 text-center text-gray-500"
-                >
-                  Sign in to claim your basic income
-                </Typography>
-                <WalletAuth onError={(error) => console.error(error)} />
-              </>
-            ) : !basicIncomeActivated ? (
-              <>
-                <Typography
-                  variant="subtitle"
-                  level={1}
-                  className="mx-auto mb-10 mt-4 text-center text-gray-500"
-                >
-                  Set up your basic income
-                </Typography>
-                <Button
-                  onClick={sendSetup}
-                  isLoading={isSubmitting || isConfirming}
-                  fullWidth
-                >
-                  Activate basic income
-                </Button>
-              </>
-            ) : (
-              <>
-                <Typography
-                  variant="subtitle"
-                  level={1}
-                  className="mx-auto mb-10 mt-4 text-center text-gray-500"
-                >
-                  Claimable drachma
-                </Typography>
-                <div className="text-center">
-                  <p className="mx-auto mb-14 font-sans text-[56px] font-semibold leading-narrow tracking-normal">
-                    {claimable.toFixed(5)}
-                  </p>
-                </div>
-                <Button
-                  onClick={sendClaim}
-                  isLoading={isSubmitting || isConfirming}
-                  fullWidth
-                >
-                  Claim
-                </Button>
-              </>
-            )}
-          </div>
-        );
+        return renderBasicIncomeContent();
       case "Savings":
         return (
           <div className="flex w-full flex-col items-center py-6">
