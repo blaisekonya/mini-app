@@ -188,35 +188,7 @@ export default function EarnPage() {
               Basic Income
             </Typography>
 
-            {walletAddress === null ? (
-              <>
-                <Typography
-                  variant="subtitle"
-                  level={1}
-                  className="mx-auto mb-10 mt-4 text-center text-gray-500"
-                >
-                  Sign in to claim your basic income
-                </Typography>
-                <WalletAuth onError={(error) => console.error(error)} />
-              </>
-            ) : !basicIncomeActivated ? (
-              <>
-                <Typography
-                  variant="subtitle"
-                  level={1}
-                  className="mx-auto mb-10 mt-4 text-center text-gray-500"
-                >
-                  Set up your basic income
-                </Typography>
-                <Button
-                  onClick={sendSetup}
-                  isLoading={isSubmitting || isConfirming}
-                  fullWidth
-                >
-                  Activate basic income
-                </Button>
-              </>
-            ) : (
+            {basicIncomeActivated ? (
               <>
                 <Typography
                   variant="subtitle"
@@ -236,6 +208,34 @@ export default function EarnPage() {
                   fullWidth
                 >
                   Claim
+                </Button>
+              </>
+            ) : walletAddress === null ? (
+              <>
+                <Typography
+                  variant="subtitle"
+                  level={1}
+                  className="mx-auto mb-10 mt-4 text-center text-gray-500"
+                >
+                  Sign in to claim your basic income
+                </Typography>
+                <WalletAuth onError={(error) => console.error(error)} />
+              </>
+            ) : (
+              <>
+                <Typography
+                  variant="subtitle"
+                  level={1}
+                  className="mx-auto mb-10 mt-4 text-center text-gray-500"
+                >
+                  Set up your basic income
+                </Typography>
+                <Button
+                  onClick={sendSetup}
+                  isLoading={isSubmitting || isConfirming}
+                  fullWidth
+                >
+                  Activate basic income
                 </Button>
               </>
             )}
