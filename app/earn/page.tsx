@@ -27,6 +27,7 @@ export default function EarnPage() {
   // Localize basic income state since these values are only used here
   const [claimable, setClaimable] = useState<number>(0);
   const [basicIncomeActivated, setBasicIncomeActivated] = useState(false);
+  const [basicIncomeLoading, setBasicIncomeLoading] = useState(true);
 
   const [activeTab, setActiveTab] = useState("Basic income");
   const [transactionId, setTransactionId] = useState<string>("");
@@ -73,6 +74,11 @@ export default function EarnPage() {
 
           setClaimable(parseFloat(newClaimable));
 
+          if (basicIncomeLoading) {
+            console.log("[BasicIncome] Basic income info has been loaded.");
+            setBasicIncomeLoading(false);
+          }
+
           if (newClaimable !== "0" || stakedAmount !== "0") {
             setBasicIncomeActivated(true);
             console.log("[BasicIncome] Basic income activated set to true");
@@ -90,7 +96,7 @@ export default function EarnPage() {
     updateBasicIncomeInfo();
     const interval = setInterval(updateBasicIncomeInfo, 1000);
     return () => clearInterval(interval);
-  }, [walletAddress]);
+  }, [walletAddress, basicIncomeLoading]);
 
   useEffect(() => {
     if (transactionId) {
@@ -171,6 +177,14 @@ export default function EarnPage() {
   const renderContent = () => {
     switch (activeTab) {
       case "Basic income":
+        if (basicIncomeLoading) {
+          return (
+            <div className="flex w-full flex-col items-center py-6">
+              <p>Loading your basic income details...</p>
+            </div>
+          );
+        }
+
         return (
           <div className="flex w-full flex-col items-center py-6">
             <div className="mb-10 flex h-24 w-24 items-center justify-center rounded-full bg-gray-100">
