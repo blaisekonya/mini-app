@@ -25,7 +25,7 @@ export default function EarnPage() {
   const { walletAddress, tokenBalance, fetchBalance } = useWallet();
 
   // Localize basic income state since these values are only used here
-  const [claimableAmount, setClaimableAmount] = useState<string | null>(null);
+  const [claimable, setClaimable] = useState<number>(0);
   const [basicIncomeActivated, setBasicIncomeActivated] = useState(false);
 
   const [activeTab, setActiveTab] = useState("Basic income");
@@ -34,9 +34,6 @@ export default function EarnPage() {
   const [hasSeenSavings, setHasSeenSavings] = useState(() => {
     return localStorage.getItem("hasSeenSavings") === "true";
   });
-  const [displayClaimable, setDisplayClaimable] = useState<number>(
-    Number(claimableAmount) || 0
-  );
 
   const { isLoading: isConfirming } = useWaitForTransactionReceipt({
     client: viemClient,
@@ -49,33 +46,50 @@ export default function EarnPage() {
   // Helper to convert wei values
   const fromWei = (value: bigint) => (Number(value) / 1e18).toString();
 
-  // Fetch the on-chain basic income info and update the local state
-  const fetchBasicIncomeInfo = async () => {
-    if (!walletAddress) return;
-    try {
-      const result = await viemClient.readContract({
-        address: "0x02c3B99D986ef1612bAC63d4004fa79714D00012",
-        abi: parseAbi([
-          "function getStakeInfo(address) external view returns (uint256, uint256)",
-        ]),
-        functionName: "getStakeInfo",
-        args: [walletAddress as `0x${string}`],
-      });
-
-      if (Array.isArray(result) && result.length === 2) {
-        const newClaimable = fromWei(result[1]);
-        setClaimableAmount(newClaimable);
-        if (newClaimable !== "0") setBasicIncomeActivated(true);
-      }
-    } catch (error) {
-      console.error("Error fetching basic income info:", error);
-    }
-  };
-
   useEffect(() => {
-    if (walletAddress) {
-      fetchBasicIncomeInfo();
-    }
+    const updateBasicIncomeInfo = async () => {
+      if (!walletAddress) return;
+      console.log(`[BasicIncome] Fetching data for wallet: ${walletAddress}`);
+      try {
+        const result = await viemClient.readContract({
+          address: "0x02c3B99D986ef1612bAC63d4004fa79714D00012",
+          abi: parseAbi([
+            "function getStakeInfo(address) external view returns (uint256, uint256)",
+          ]),
+          functionName: "getStakeInfo",
+          args: [walletAddress as `0x${string}`],
+        });
+        console.log("[BasicIncome] Fetched result:", result);
+
+        if (Array.isArray(result) && result.length === 2) {
+          const stakedAmount = fromWei(result[0]);
+          const newClaimable = fromWei(result[1]);
+          console.log(
+            "[BasicIncome] Parsed values - stakedAmount:",
+            stakedAmount,
+            "newClaimable:",
+            newClaimable
+          );
+
+          setClaimable(parseFloat(newClaimable));
+
+          if (newClaimable !== "0" || stakedAmount !== "0") {
+            setBasicIncomeActivated(true);
+            console.log("[BasicIncome] Basic income activated set to true");
+          } else {
+            setBasicIncomeActivated(false);
+            console.log("[BasicIncome] Basic income activated set to false");
+          }
+        }
+      } catch (error) {
+        console.error("[BasicIncome] Error updating info:", error);
+      }
+    };
+
+    // Immediately fetch the on-chain data, then poll every second.
+    updateBasicIncomeInfo();
+    const interval = setInterval(updateBasicIncomeInfo, 1000);
+    return () => clearInterval(interval);
   }, [walletAddress]);
 
   useEffect(() => {
@@ -83,57 +97,6 @@ export default function EarnPage() {
       fetchBalance();
     }
   }, [transactionId, fetchBalance]);
-
-  // Local calculation of claimable amount based on a stored baseline and an accumulation rate
-  useEffect(() => {
-    if (claimableAmount === undefined || claimableAmount === null) return;
-
-    const rate = 1 / 8640; // Increment rate (tokens per second)
-    const currentClaimable = Number(claimableAmount);
-
-    let baseValue: number;
-    let startTime: number;
-
-    const storedBase = localStorage.getItem("basicIncomeBase");
-    const storedStartTime = localStorage.getItem("basicIncomeStartTime");
-
-    if (storedBase && storedStartTime) {
-      baseValue = parseFloat(storedBase);
-      startTime = parseInt(storedStartTime, 10);
-
-      // If the on-chain claimable has increased, update the baseline.
-      if (currentClaimable > baseValue) {
-        baseValue = currentClaimable;
-        startTime = Date.now();
-        localStorage.setItem("basicIncomeBase", baseValue.toString());
-        localStorage.setItem("basicIncomeStartTime", startTime.toString());
-      }
-
-      // If the on-chain claimable has decreased, reset the baseline.
-      if (currentClaimable < baseValue) {
-        baseValue = currentClaimable;
-        startTime = Date.now();
-        localStorage.setItem("basicIncomeBase", baseValue.toString());
-        localStorage.setItem("basicIncomeStartTime", startTime.toString());
-      }
-    } else {
-      baseValue = currentClaimable;
-      startTime = Date.now();
-      localStorage.setItem("basicIncomeBase", baseValue.toString());
-      localStorage.setItem("basicIncomeStartTime", startTime.toString());
-    }
-
-    const updateDisplay = () => {
-      const elapsedSeconds = (Date.now() - startTime) / 1000;
-      const newValue = baseValue + elapsedSeconds * rate;
-      setDisplayClaimable(newValue);
-    };
-
-    updateDisplay();
-    const interval = setInterval(updateDisplay, 1000);
-
-    return () => clearInterval(interval);
-  }, [claimableAmount]);
 
   const sendSetup = async () => {
     if (!MiniKit.isInstalled()) return;
@@ -154,7 +117,7 @@ export default function EarnPage() {
         console.error("Error sending transaction", finalPayload);
       } else {
         setTransactionId(finalPayload.transaction_id);
-        await fetchBasicIncomeInfo();
+        await fetchBalance();
         setBasicIncomeActivated(true);
       }
     } catch (error: any) {
@@ -167,6 +130,7 @@ export default function EarnPage() {
   const sendClaim = async () => {
     if (!MiniKit.isInstalled()) return;
     setIsSubmitting(true);
+    console.log("[Claim] Sending claim transaction...");
     try {
       const { finalPayload } = await MiniKit.commandsAsync.sendTransaction({
         transaction: [
@@ -179,20 +143,18 @@ export default function EarnPage() {
           },
         ],
       });
+      console.log("[Claim] Transaction response:", finalPayload);
 
       if (finalPayload.status === "error") {
-        console.error("Error sending transaction", finalPayload);
+        console.error("[Claim] Error sending transaction", finalPayload);
       } else {
         setTransactionId(finalPayload.transaction_id);
-        setDisplayClaimable(0);
-        await fetchBasicIncomeInfo();
+        console.log("[Claim] Transaction ID set:", finalPayload.transaction_id);
         await fetchBalance();
-
-        localStorage.setItem("basicIncomeBase", "0");
-        localStorage.setItem("basicIncomeStartTime", Date.now().toString());
+        console.log("[Claim] Balance fetched successfully");
       }
-    } catch (error) {
-      console.error("Error during claim:", error);
+    } catch (error: any) {
+      console.error("[Claim] Error during claim:", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -257,7 +219,7 @@ export default function EarnPage() {
                 </Typography>
                 <div className="text-center">
                   <p className="mx-auto mb-14 font-sans text-[56px] font-semibold leading-narrow tracking-normal">
-                    {displayClaimable.toFixed(5)}
+                    {claimable.toFixed(5)}
                   </p>
                 </div>
                 <Button
